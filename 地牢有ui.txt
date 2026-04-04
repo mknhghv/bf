@@ -18,7 +18,7 @@ local State = {
     isAutoDetect = true,
     AutoBuso = false,
     AutoV3 = false,
-    AutoV4 = false, -- 使用你原本的遠端觸發邏輯
+    AutoV4 = false,
     LockedLevel = 1
 }
 
@@ -30,7 +30,7 @@ local function getRef()
     end
 end
 
--- [你原本給的 V4 邏輯]
+-- [原版 V4 邏輯]
 local function callV4()
     if State.AutoV4 then
         local b = player:FindFirstChild("Backpack")
@@ -47,11 +47,9 @@ end
 -- [自動補 Buff]
 local function doBuffs()
     if not character then return end
-    -- 武裝色
     if State.AutoBuso and not character:FindFirstChild("HasBuso") then
         pcall(function() ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso") end)
     end
-    -- V3 技能
     if State.AutoV3 then
         pcall(function() ReplicatedStorage.Remotes.CommE:FireServer("ActivateAbility") end)
     end
@@ -59,12 +57,12 @@ end
 
 -- ━━━━━━━━━━━━━━━━━━━━━━ UI 建立 ━━━━━━━━━━━━━━━━━━━━━━
 local sg = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-sg.Name = "OriginalV4CoreUI"
+sg.Name = "CleanV4CoreUI"
 sg.ResetOnSpawn = false
 
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 260, 0, 420)
-main.Position = UDim2.new(0.5, -130, 0.4, -210)
+main.Size = UDim2.new(0, 260, 0, 460)
+main.Position = UDim2.new(0.5, -130, 0.4, -230)
 main.BackgroundColor3 = Color3.new(0, 0, 0)
 main.Active = true
 main.Draggable = true
@@ -73,7 +71,7 @@ Instance.new("UICorner", main)
 local bar = Instance.new("TextLabel", main)
 bar.Size = UDim2.new(1, 0, 0, 50)
 bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-bar.Text = "自動地下城"
+bar.Text = "  自動地下城"
 bar.TextColor3 = Color3.new(1, 1, 1)
 bar.TextSize = 18
 bar.Font = Enum.Font.GothamBold
@@ -103,7 +101,6 @@ local function makeBtn(txt, y, color, cb)
     return b
 end
 
--- 按鈕排版
 makeBtn("自動 V4 技能", 65, Color3.fromRGB(60, 60, 70), function(b)
     State.AutoV4 = not State.AutoV4
     b.BackgroundColor3 = State.AutoV4 and Color3.fromRGB(0, 150, 80) or Color3.fromRGB(60, 60, 70)
@@ -137,6 +134,16 @@ makeBtn("📍 強制傳送目前出口 📍", 295, Color3.fromRGB(100, 80, 200),
     end
 end)
 
+local warning = Instance.new("TextLabel", main)
+warning.Size = UDim2.new(1, 0, 0, 30)
+warning.Position = UDim2.new(0, 0, 0, 350)
+warning.Text = "如果功能失效的話功能全關重開腳本"
+warning.TextSize = 14
+warning.TextColor3 = Color3.fromRGB(255, 50, 50)
+warning.BackgroundTransparency = 1
+warning.Font = Enum.Font.GothamSemibold
+warning.Parent = main
+
 local status = Instance.new("TextLabel", main)
 status.Size = UDim2.new(1, 0, 0, 60)
 status.Position = UDim2.new(0, 0, 1, -65)
@@ -145,8 +152,6 @@ status.TextSize = 18
 status.TextColor3 = Color3.new(1, 1, 0)
 status.BackgroundTransparency = 1
 status.Parent = main
-
--- ━━━━━━━━━━━━━━━━━━━━━━ 核心循環 ━━━━━━━━━━━━━━━━━━━━━━
 
 function doTP(part)
     if State.isTeleporting then return end
@@ -162,12 +167,8 @@ task.spawn(function()
         task.wait(0.8)
         getRef()
         if not character or not hrp then continue end
-
-        -- 執行 Buffs 與 原版 V4 邏輯
         doBuffs()
         callV4()
-
-        -- 循序地牢邏輯
         local map = workspace:FindFirstChild("Map")
         local dungeon = map and map:FindFirstChild("Dungeon")
         if dungeon then
@@ -178,7 +179,6 @@ task.spawn(function()
                     State.LockedLevel = n
                 end
             end
-
             if State.isAutoDetect and not State.isTeleporting then
                 local folder = dungeon:FindFirstChild(tostring(State.LockedLevel))
                 local exit = folder and (folder:FindFirstChild("ExitTeleporter") or folder:FindFirstChild("Teleport"))
