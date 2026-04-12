@@ -1,0 +1,109 @@
+local _call1 = game:GetService('TweenService')
+local _call7 = game:GetService('StarterGui')
+local _call10 = game:GetService('TeleportService')
+local _call11 = game:GetService('HttpService')
+
+local _player = game:GetService('Players').LocalPlayer
+local _call15 = Instance.new('ScreenGui', game.CoreGui)
+_call15.Name = 'DRG_AutoChest'
+
+local _call17 = Instance.new('Frame', _call15)
+_call17.Size = UDim2.new(0, 260, 0, 190)
+_call17.Position = UDim2.new(0.4, 0, 0.3, 0)
+_call17.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+_call17.BackgroundTransparency = 0.3
+_call17.Active = true
+_call17.Draggable = true
+
+local _call25 = Instance.new('UIStroke', _call17)
+_call25.Thickness = 2
+
+-- 彩虹邊框邏輯
+task.spawn(function()
+    while true do
+        for i = 0, 1, 0.01 do
+            _call25.Color = Color3.fromHSV(i, 1, 1)
+            task.wait(0.05)
+        end
+    end
+end)
+
+local _call270 = Instance.new('TextLabel', _call17)
+_call270.Size = UDim2.new(1, 0, 0, 30)
+_call270.Text = 'DRG 團隊 自動刷寶箱 V1.3' -- 中文化
+_call270.TextColor3 = Color3.fromRGB(255, 50, 50)
+_call270.BackgroundTransparency = 1
+_call270.Font = Enum.Font.GothamBold
+_call270.TextSize = 16
+
+local _call278 = Instance.new('TextLabel', _call17)
+_call278.Position = UDim2.new(0, 0, 0, 25)
+_call278.Size = UDim2.new(1, 0, 0, 20)
+_call278.Text = '製作人: nkhanh211' -- 中文化
+_call278.TextColor3 = Color3.fromRGB(200, 200, 200)
+_call278.BackgroundTransparency = 1
+_call278.Font = Enum.Font.Gotham
+_call278.TextSize = 12
+
+local _call288 = Instance.new('TextLabel', _call17)
+_call288.Position = UDim2.new(0, 0, 0, 50)
+_call288.Size = UDim2.new(1, 0, 0, 20)
+_call288.Text = '狀態: 關閉' -- 中文化
+_call288.BackgroundTransparency = 1
+_call288.TextColor3 = Color3.new(1, 1, 1)
+_call288.Font = Enum.Font.Gotham
+_call288.TextSize = 13
+
+local _call298 = Instance.new('TextLabel', _call17)
+_call298.Position = UDim2.new(0, 0, 0, 70)
+_call298.Size = UDim2.new(1, 0, 0, 20)
+_call298.Text = '已撿取數量: 0' -- 中文化
+_call298.BackgroundTransparency = 1
+_call298.TextColor3 = Color3.new(1, 1, 1)
+_call298.Font = Enum.Font.Gotham
+_call298.TextSize = 13
+
+local _call308 = Instance.new('TextButton', _call17)
+_call308.Size = UDim2.new(0.9, 0, 0, 25)
+_call308.Position = UDim2.new(0.05, 0, 0, 100)
+_call308.Text = '自動刷寶箱: 關閉' -- 中文化
+_call308.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+_call308.TextColor3 = Color3.new(1, 1, 1)
+_call308.Font = Enum.Font.GothamBold
+_call308.TextSize = 13
+
+local _call320 = Instance.new('TextButton', _call17)
+_call320.Size = UDim2.new(0.9, 0, 0, 25)
+_call320.Position = UDim2.new(0.05, 0, 0, 130)
+_call320.Text = '移動模式: 補間動畫(Tween)' -- 中文化
+_call320.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+_call320.TextColor3 = Color3.new(1, 1, 1)
+_call320.Font = Enum.Font.GothamBold
+_call320.TextSize = 13
+
+local _call332 = Instance.new('TextButton', _call17)
+_call332.Size = UDim2.new(0.9, 0, 0, 25)
+_call332.Position = UDim2.new(0.05, 0, 0, 160)
+_call332.Text = '防卡頓: 關閉' -- 中文化
+_call332.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+_call332.TextColor3 = Color3.new(1, 1, 1)
+_call332.Font = Enum.Font.GothamBold
+_call332.TextSize = 13
+
+local _call344 = Instance.new('TextButton', _call15)
+_call344.Size = UDim2.new(0, 80, 0, 25)
+_call344.Position = UDim2.new(0, 10, 0.5, 0)
+_call344.Text = '隱藏介面' -- 中文化
+_call344.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+_call344.TextColor3 = Color3.new(1, 1, 1)
+
+_call344.MouseButton1Click:Connect(function()
+    _call17.Visible = not _call17.Visible
+    _call344.Text = _call17.Visible and "隱藏介面" or "顯示介面"
+end)
+
+_call7:SetCore('SendNotification', {
+    Text = '自動刷寶箱 V1.3 已載入)', -- 中文化
+    Title = 'DRG 團隊', -- 中文化
+    Duration = 5,
+})
