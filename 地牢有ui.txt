@@ -2,6 +2,7 @@ local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 local character, hrp, humanoid
@@ -11,6 +12,10 @@ local CONFIG = {
     CheckInterval = 0.8,
     TweenTime = 0.8,
     DetectionRadius = 2500,
+    BUDDHA_SLOT = 2,        -- 大佛果實位置
+    SWORD_SLOT = 3,         -- 劍的位置
+    NORMAL_HIP = 2,         -- 正常人骨盆高度
+    BUDDHA_HIP = 10         -- 大佛變身後的骨盆高度判定
 }
 
 local State = {
@@ -19,9 +24,22 @@ local State = {
     AutoBuso = false,
     AutoV3 = false,
     AutoV4 = false,
+    AutoBuddha = false, 
     LockedLevel = 1
 }
 
+local ALL_SWORDS = {
+    "True Triple Katana", "Hallow Scythe", "Dark Blade", "Cursed Dual Katana",
+    "Rengoku", "Saber", "Saishi", "Shark Anchor", "Spikey Trident",
+    "Tushita", "Yama", "Dragonheart"
+}
+
+local SWORDS_TABLE = {}
+for _, sword in ipairs(ALL_SWORDS) do
+    SWORDS_TABLE[sword] = true
+end
+
+-- ━━━━━━━━━━━━━━━━━━━━━━ 工具函式 ━━━━━━━━━━━━━━━━━━━━━━
 local function getRef()
     character = player.Character
     if character then
@@ -30,21 +48,58 @@ local function getRef()
     end
 end
 
--- [原版 V4 邏輯]
+local function pressKey(keyCode)
+    VirtualInputManager:SendKeyEvent(true, keyCode, false, nil)
+    task.wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, keyCode, false, nil)
+end
+
+local function isBuddhaForm()
+    if not humanoid then return false end
+    return humanoid.HipHeight > CONFIG.BUDDHA_HIP 
+end
+
+local function hasAnySwordEquipped()
+    if not character then return false end
+    for _, child in ipairs(character:GetChildren()) do
+        if child:IsA("Tool") and SWORDS_TABLE[child.Name] then
+            return true
+        end
+    end
+    return false
+end
+
+-- ━━━━━━━━━━━━━━━━━━━━━━ 功能邏輯 ━━━━━━━━━━━━━━━━━━━━━━
+
+local function doBuddhaLogic()
+    if not State.AutoBuddha or not character or not humanoid then return end
+    
+    if isBuddhaForm() then
+        -- 已經是大佛了，確保拿著劍
+        if not hasAnySwordEquipped() then
+            pressKey(Enum.KeyCode.Three) 
+            task.wait(0.3)
+        end
+    else
+        -- 還是人類，執行變身
+        pressKey(Enum.KeyCode.Two)   -- 切換果實
+        task.wait(0.5)
+        pressKey(Enum.KeyCode.Z)     -- 按 Z 變身
+        task.wait(1.5)               -- 沒覺醒變身動畫較慢，等待 1.5 秒
+        pressKey(Enum.KeyCode.Three) -- 切換回劍
+        task.wait(0.5)
+    end
+end
+
 local function callV4()
     if State.AutoV4 then
         local b = player:FindFirstChild("Backpack")
         local a = b and b:FindFirstChild("Awakening")
         local r = a and a:FindFirstChild("RemoteFunction")
-        if r then 
-            pcall(function() 
-                r:InvokeServer(true) 
-            end) 
-        end
+        if r then pcall(function() r:InvokeServer(true) end) end
     end
 end
 
--- [自動補 Buff]
 local function doBuffs()
     if not character then return end
     if State.AutoBuso and not character:FindFirstChild("HasBuso") then
@@ -57,12 +112,12 @@ end
 
 -- ━━━━━━━━━━━━━━━━━━━━━━ UI 建立 ━━━━━━━━━━━━━━━━━━━━━━
 local sg = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-sg.Name = "CleanV4CoreUI"
+sg.Name = "DungeonFixFinal"
 sg.ResetOnSpawn = false
 
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 260, 0, 460)
-main.Position = UDim2.new(0.5, -130, 0.4, -230)
+main.Size = UDim2.new(0, 260, 0, 500)
+main.Position = UDim2.new(0.5, -130, 0.4, -250)
 main.BackgroundColor3 = Color3.new(0, 0, 0)
 main.Active = true
 main.Draggable = true
@@ -71,7 +126,7 @@ Instance.new("UICorner", main)
 local bar = Instance.new("TextLabel", main)
 bar.Size = UDim2.new(1, 0, 0, 50)
 bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-bar.Text = "  自動地下城"
+bar.Text = "  自動地牢 (修復版)"
 bar.TextColor3 = Color3.new(1, 1, 1)
 bar.TextSize = 18
 bar.Font = Enum.Font.GothamBold
@@ -89,11 +144,11 @@ close.MouseButton1Click:Connect(function() sg:Destroy() end)
 
 local function makeBtn(txt, y, color, cb)
     local b = Instance.new("TextButton", main)
-    b.Size = UDim2.new(0.9, 0, 0, 45)
+    b.Size = UDim2.new(0.9, 0, 0, 40)
     b.Position = UDim2.new(0.05, 0, 0, y)
     b.BackgroundColor3 = color
     b.Text = txt
-    b.TextSize = 16
+    b.TextSize = 14
     b.TextColor3 = Color3.new(1, 1, 1)
     b.Font = Enum.Font.GothamSemibold
     Instance.new("UICorner", b)
@@ -101,28 +156,33 @@ local function makeBtn(txt, y, color, cb)
     return b
 end
 
-makeBtn("自動 V4 技能", 65, Color3.fromRGB(60, 60, 70), function(b)
+makeBtn("自動 V4 技能", 60, Color3.fromRGB(60, 60, 70), function(b)
     State.AutoV4 = not State.AutoV4
     b.BackgroundColor3 = State.AutoV4 and Color3.fromRGB(0, 150, 80) or Color3.fromRGB(60, 60, 70)
 end)
 
-makeBtn("自動武裝色 (Buso)", 120, Color3.fromRGB(60, 60, 70), function(b)
+makeBtn("自動武裝色", 105, Color3.fromRGB(60, 60, 70), function(b)
     State.AutoBuso = not State.AutoBuso
     b.BackgroundColor3 = State.AutoBuso and Color3.fromRGB(0, 150, 80) or Color3.fromRGB(60, 60, 70)
 end)
 
-makeBtn("自動 V3 技能", 175, Color3.fromRGB(60, 60, 70), function(b)
+makeBtn("自動 V3 技能", 150, Color3.fromRGB(60, 60, 70), function(b)
     State.AutoV3 = not State.AutoV3
     b.BackgroundColor3 = State.AutoV3 and Color3.fromRGB(0, 150, 80) or Color3.fromRGB(60, 60, 70)
 end)
 
-makeBtn("自動偵測傳送：開啟", 235, Color3.fromRGB(0, 120, 60), function(b)
+makeBtn("自動大佛變身", 195, Color3.fromRGB(60, 60, 70), function(b)
+    State.AutoBuddha = not State.AutoBuddha
+    b.BackgroundColor3 = State.AutoBuddha and Color3.fromRGB(180, 130, 0) or Color3.fromRGB(60, 60, 70)
+end)
+
+makeBtn("自動偵測傳送：開啟", 245, Color3.fromRGB(0, 120, 60), function(b)
     State.isAutoDetect = not State.isAutoDetect
     b.Text = "自動偵測傳送：" .. (State.isAutoDetect and "開啟" or "關閉")
     b.BackgroundColor3 = State.isAutoDetect and Color3.fromRGB(0, 120, 60) or Color3.fromRGB(150, 0, 0)
 end)
 
-makeBtn("📍 強制傳送目前出口 📍", 295, Color3.fromRGB(100, 80, 200), function()
+makeBtn("📍 強制傳送出口 📍", 295, Color3.fromRGB(100, 80, 200), function()
     State.isTeleporting = false
     getRef()
     local d = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Dungeon")
@@ -134,24 +194,16 @@ makeBtn("📍 強制傳送目前出口 📍", 295, Color3.fromRGB(100, 80, 200),
     end
 end)
 
-local warning = Instance.new("TextLabel", main)
-warning.Size = UDim2.new(1, 0, 0, 30)
-warning.Position = UDim2.new(0, 0, 0, 350)
-warning.Text = "如果功能失效的話功能全關重開腳本"
-warning.TextSize = 14
-warning.TextColor3 = Color3.fromRGB(255, 50, 50)
-warning.BackgroundTransparency = 1
-warning.Font = Enum.Font.GothamSemibold
-warning.Parent = main
-
 local status = Instance.new("TextLabel", main)
 status.Size = UDim2.new(1, 0, 0, 60)
-status.Position = UDim2.new(0, 0, 1, -65)
+status.Position = UDim2.new(0, 0, 1, -70)
 status.Text = "目前關卡：第 1 關\n狀態：待機中"
-status.TextSize = 18
+status.TextSize = 16
 status.TextColor3 = Color3.new(1, 1, 0)
 status.BackgroundTransparency = 1
 status.Parent = main
+
+-- ━━━━━━━━━━━━━━━━━━━━━━ 核心循環 ━━━━━━━━━━━━━━━━━━━━━━
 
 function doTP(part)
     if State.isTeleporting then return end
@@ -167,8 +219,11 @@ task.spawn(function()
         task.wait(0.8)
         getRef()
         if not character or not hrp then continue end
+        
         doBuffs()
         callV4()
+        doBuddhaLogic()
+        
         local map = workspace:FindFirstChild("Map")
         local dungeon = map and map:FindFirstChild("Dungeon")
         if dungeon then
@@ -179,6 +234,7 @@ task.spawn(function()
                     State.LockedLevel = n
                 end
             end
+        
             if State.isAutoDetect and not State.isTeleporting then
                 local folder = dungeon:FindFirstChild(tostring(State.LockedLevel))
                 local exit = folder and (folder:FindFirstChild("ExitTeleporter") or folder:FindFirstChild("Teleport"))
