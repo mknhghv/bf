@@ -1,0 +1,245 @@
+-- ━━━━━━━━━━━━━━━━━━━━━━ 核心服務 ━━━━━━━━━━━━━━━━━━━━━━
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local character, hrp, humanoid
+
+-- ━━━━━━━━━━━━━━━━━━━━━━ 核心設定 ━━━━━━━━━━━━━━━━━━━━━━
+local CONFIG = {
+    BUDDHA_HIP = 10,
+    AttackDistance = 5000,
+    AttackCooldown = 0.05,
+    MaxZoom = 128
+}
+
+local State = {
+    AutoBuso = false,
+    AutoV3 = false,
+    AutoV4 = false,
+    AutoBuddha = false, 
+    AutoFastAttack = false,
+}
+
+-- ━━━━━━━━━━━━━━━━━━━━━━ Fast Attack 邏輯 ━━━━━━━━━━━━━━━━━━━━━━
+local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
+local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+local RegisterHit = Net:WaitForChild("RE/RegisterHit")
+
+local lastAttackTime = 0
+local lastScanTime = 0
+local cachedBladeHits = {}
+
+local function getTargets()
+    if tick() - lastScanTime < 0.01 and #cachedBladeHits > 0 then return cachedBladeHits end
+    local targets = {}
+    local playerPos = hrp and hrp.Position
+    if not playerPos then return targets end
+    
+    local function scan(folder)
+        if not folder then return end
+        for _, v in pairs(folder:GetChildren()) do
+            if v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                if (v.HumanoidRootPart.Position - playerPos).Magnitude <= CONFIG.AttackDistance then
+                    table.insert(targets, v)
+                end
+            end
+        end
+    end
+    scan(workspace:FindFirstChild("Enemies"))
+    scan(workspace:FindFirstChild("Characters"))
+    lastScanTime = tick()
+    cachedBladeHits = targets
+    return targets
+end
+
+local function doFastAttack()
+    if not State.AutoFastAttack or (tick() - lastAttackTime) < CONFIG.AttackCooldown then return end
+    lastAttackTime = tick()
+    local enemies = getTargets()
+    if #enemies > 0 then
+        RegisterAttack:FireServer(-math.huge)
+        local args = {nil, {}}
+        for i, v in pairs(enemies) do
+            if not args[1] then args[1] = v:FindFirstChild("Head") or v.HumanoidRootPart end
+            args[2][i] = {v, v.HumanoidRootPart}
+        end
+        RegisterHit:FireServer(unpack(args))
+    end
+end
+
+-- ━━━━━━━━━━━━━━━━━━━━━━ UI 介面 (打字+滑動雙模) ━━━━━━━━━━━━━━━━━━━━━━
+local sg = Instance.new("ScreenGui", player.PlayerGui)
+sg.Name = "CombatMaster_Final"
+sg.ResetOnSpawn = false
+
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 380, 0, 780)
+main.Position = UDim2.new(0.5, -190, 0.4, -390)
+main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+main.Active = true
+Instance.new("UICorner", main)
+
+-- 標題欄 (只有這裡可以拖動)
+local bar = Instance.new("Frame", main)
+bar.Size = UDim2.new(1, 0, 0, 60)
+bar.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+Instance.new("UICorner", bar)
+
+local title = Instance.new("TextLabel", bar)
+title.Size = UDim2.new(1, -60, 1, 0)
+title.Text = "  戰鬥大師 (打字輸入版)"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextSize = 24
+title.Font = Enum.Font.GothamBold
+title.BackgroundTransparency = 1
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- 拖動腳本
+local dragging, dragInput, dragStart, startPos
+bar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+-- 關閉按鈕
+local close = Instance.new("TextButton", bar)
+close.Size = UDim2.new(0, 50, 0, 50)
+close.Position = UDim2.new(1, -55, 0, 5)
+close.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
+close.Text = "X"
+close.TextColor3 = Color3.new(1, 1, 1)
+close.TextSize = 30
+Instance.new("UICorner", close)
+close.MouseButton1Click:Connect(function() sg:Destroy() end)
+
+-- 即時顯示看板
+local infoBox = Instance.new("TextLabel", main)
+infoBox.Size = UDim2.new(0.92, 0, 0, 80)
+infoBox.Position = UDim2.new(0.04, 0, 0, 75)
+infoBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+infoBox.TextColor3 = Color3.new(0, 1, 0.5)
+infoBox.TextSize = 22
+infoBox.Font = Enum.Font.Code
+Instance.new("UICorner", infoBox)
+
+local function updateUI()
+    infoBox.Text = string.format("攻速CD: %.3f\n範圍: %d | 視角: %d", CONFIG.AttackCooldown, CONFIG.AttackDistance, CONFIG.MaxZoom)
+end
+updateUI()
+
+-- 創建按鈕
+local function makeBtn(txt, y, stateKey, colorOn)
+    local b = Instance.new("TextButton", main)
+    b.Size = UDim2.new(0.92, 0, 0, 55)
+    b.Position = UDim2.new(0.04, 0, 0, y)
+    b.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    b.Text = txt
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextSize = 22
+    Instance.new("UICorner", b)
+    b.MouseButton1Click:Connect(function()
+        State[stateKey] = not State[stateKey]
+        b.BackgroundColor3 = State[stateKey] and colorOn or Color3.fromRGB(60, 60, 80)
+    end)
+end
+
+-- 創建輸入調整框 (打字用)
+local function makeInput(txt, y, callback)
+    local label = Instance.new("TextLabel", main)
+    label.Size = UDim2.new(0.5, 0, 0, 40)
+    label.Position = UDim2.new(0.04, 0, 0, y)
+    label.Text = txt
+    label.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    label.TextSize = 20
+    label.BackgroundTransparency = 1
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local box = Instance.new("TextBox", main)
+    box.Size = UDim2.new(0.4, 0, 0, 40)
+    box.Position = UDim2.new(0.56, 0, 0, y)
+    box.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    box.TextColor3 = Color3.new(1, 1, 1)
+    box.TextSize = 20
+    box.PlaceholderText = "輸入數值"
+    Instance.new("UICorner", box)
+    
+    box.FocusLost:Connect(function()
+        local val = tonumber(box.Text)
+        if val then callback(val) updateUI() end
+        box.Text = ""
+    end)
+end
+
+-- 排版內容
+makeBtn("自動 V3 技能", 170, "AutoV3", Color3.fromRGB(0, 150, 255))
+makeBtn("自動 V4 技能", 235, "AutoV4", Color3.fromRGB(160, 50, 255))
+makeBtn("極速攻擊開關", 300, "AutoFastAttack", Color3.fromRGB(255, 0, 0))
+
+makeInput("攻速 CD (打字)", 375, function(v) CONFIG.AttackCooldown = math.clamp(v, 0, 1) end)
+makeInput("攻擊距離 (打字)", 430, function(v) CONFIG.AttackDistance = math.clamp(v, 100, 10000) end)
+makeInput("視角縮放 (打字)", 485, function(v) 
+    CONFIG.MaxZoom = math.clamp(v, 128, 1000000)
+    player.CameraMaxZoomDistance = CONFIG.MaxZoom 
+end)
+
+makeBtn("自動大佛變身", 560, "AutoBuddha", Color3.fromRGB(200, 150, 0))
+makeBtn("自動武裝色", 625, "AutoBuso", Color3.fromRGB(100, 100, 100))
+
+-- ━━━━━━━━━━━━━━━━━━━━━━ 核心循環 ━━━━━━━━━━━━━━━━━━━━━━
+local function getRef()
+    character = player.Character
+    if character then
+        hrp = character:FindFirstChild("HumanoidRootPart")
+        humanoid = character:FindFirstChild("Humanoid")
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    getRef()
+    if hrp then doFastAttack() end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.8)
+        if not sg.Parent then break end
+        getRef()
+        if not character then continue end
+        
+        if State.AutoBuso and not character:FindFirstChild("HasBuso") then
+            pcall(function() ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso") end)
+        end
+        if State.AutoV3 then
+            pcall(function() ReplicatedStorage.Remotes.CommE:FireServer("ActivateAbility") end)
+        end
+        if State.AutoV4 then
+            local awk = player.Backpack:FindFirstChild("Awakening") or character:FindFirstChild("Awakening")
+            if awk and awk:FindFirstChild("RemoteFunction") then
+                pcall(function() awk.RemoteFunction:InvokeServer(true) end)
+            end
+        end
+        if State.AutoBuddha and humanoid and humanoid.HipHeight <= CONFIG.BUDDHA_HIP then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, nil)
+            task.wait(0.5)
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Z, false, nil)
+            task.wait(1.5)
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Three, false, nil)
+        end
+    end
+end)
