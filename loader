@@ -124,9 +124,13 @@ VerifyButton.Parent = MainFrame
 local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 8)
 BtnCorner.Parent = VerifyButton
-
 VerifyButton.Activated:Connect(function()
     local inputKey = TextBox.Text
+    
+    -- 🔒 核心修正：強力清除所有前後空白、換行符號與隱形字元！
+    inputKey = string.gsub(inputKey, "%s+", "")
+    inputKey = string.gsub(inputKey, "[\r\n]", "")
+
     if inputKey == "" then
         VerifyButton.Text = "❌ 請先輸入卡密！"
         task.wait(1.5)
@@ -137,7 +141,7 @@ VerifyButton.Activated:Connect(function()
     VerifyButton.Text = "⚡ 正在穿透連線中..."
     VerifyButton.Active = false
     
-    -- 🚀 使用最安全的 game:HttpGet 備用繞過機制，將參數直接掛在網址後面
+    -- 使用 UrlEncode 確保字串在網址傳輸時不會變形
     local fullUrl = BACKEND_URL .. "?key=" .. HttpService:UrlEncode(inputKey)
     
     local success, resBody = pcall(function()
@@ -162,6 +166,7 @@ VerifyButton.Activated:Connect(function()
                 end
             end
         else
+            -- 💡 這裡會精準告訴你 Vercel 傳回來的真正錯誤訊息
             local errMsg = data and data.message or "卡密不正確"
             VerifyButton.Text = "❌ " .. tostring(errMsg)
             VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
@@ -169,7 +174,6 @@ VerifyButton.Activated:Connect(function()
     else
         VerifyButton.Text = "❌ 連線失敗: 網址不正確或伺服器未開啟"
         VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
-        warn("Roblox Http 錯誤訊息: " .. tostring(resBody))
     end
     
     task.wait(2)
