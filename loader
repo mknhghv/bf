@@ -125,45 +125,6 @@ local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 8)
 BtnCorner.Parent = VerifyButton
 
--- ==========================================
--- 🛠️ 現代化滑順拖動邏輯 (取代舊版 Draggable)
--- ==========================================
-local dragging, dragInput, dragStart, startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
-    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
-end)
-
--- ==========================================
--- 🚀 後端中轉驗證發送邏輯
--- ==========================================
 VerifyButton.Activated:Connect(function()
     local inputKey = TextBox.Text
     if inputKey == "" then
@@ -173,60 +134,42 @@ VerifyButton.Activated:Connect(function()
         return
     end
     
-    VerifyButton.Text = "⚡ 正在與 Vercel 連線..."
+    VerifyButton.Text = "⚡ 正在穿透連線中..."
     VerifyButton.Active = false
     
-    local payload = HttpService:JSONEncode({
-        key = inputKey,
-        userId = tostring(LocalPlayer.UserId)
-    })
+    -- 🚀 使用最安全的 game:HttpGet 備用繞過機制，將參數直接掛在網址後面
+    local fullUrl = BACKEND_URL .. "?key=" .. HttpService:UrlEncode(inputKey)
     
-    local sendRequest = syn and syn.request or http and http.request or request or (Fluxus and Fluxus.request)
-    
-    if not sendRequest then
-        VerifyButton.Text = "❌ 您的執行器不支援安全 HTTP 請求"
-        task.wait(2)
-        VerifyButton.Text = "開始驗證"
-        VerifyButton.Active = true
-        return
-    end
-
-    local success, res = pcall(function()
-        return sendRequest({
-            Url = BACKEND_URL,
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = payload
-        })
+    local success, resBody = pcall(function()
+        return game:HttpGet(fullUrl)
     end)
     
-    if success and res then
-        local statusCode = res.StatusCode or 0
-        local bodyContent = res.Body or ""
+    if success and resBody then
+        local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(resBody) end)
         
-        if statusCode == 200 then
-            local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(bodyContent) end)
-            if decodeSuccess and data.success then
-                VerifyButton.Text = "✅ 歡迎，" .. tostring(data.user) .. "！載入中..."
-                VerifyButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-                task.wait(1)
-                ScreenGui:Destroy()
-                
-                if data.scriptData then
-                    local runScript, compileError = loadstring(data.scriptData)
-                    if runScript then pcall(runScript) else warn(compileError) end
+        if decodeSuccess and data.success then
+            VerifyButton.Text = "✅ 歡迎，" .. tostring(data.user) .. "！載入中..."
+            VerifyButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+            task.wait(1)
+            ScreenGui:Destroy()
+            
+            if data.scriptData then
+                local runScript, compileError = loadstring(data.scriptData)
+                if runScript then 
+                    pcall(runScript) 
+                else 
+                    warn("[Iruka Hub] 編譯失敗: " .. tostring(compileError)) 
                 end
-            else
-                VerifyButton.Text = "❌ 卡密無效或過期"
-                VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
             end
         else
-            VerifyButton.Text = "❌ 伺服器拒絕 (錯誤碼: " .. tostring(statusCode) .. ")"
+            local errMsg = data and data.message or "卡密不正確"
+            VerifyButton.Text = "❌ " .. tostring(errMsg)
             VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
         end
     else
-        VerifyButton.Text = "❌ 連線失敗: 網址不正確或未部署"
+        VerifyButton.Text = "❌ 連線失敗: 網址不正確或伺服器未開啟"
         VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+        warn("Roblox Http 錯誤訊息: " .. tostring(resBody))
     end
     
     task.wait(2)
