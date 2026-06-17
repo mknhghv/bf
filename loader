@@ -1,45 +1,28 @@
--- [[ 🦈 Iruka Hub 修正版載入器 - 現代化拖動＋強制關閉 ]]
+-- [[ 🦈 Iruka Hub 終極穿透版載入器 ]]
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- ==========================================
 -- 🌐 填入你的 Vercel 後端網址
--- ==========================================
-local BACKEND_URL = "irukascript.vercel.app/api/verify"
+local BACKEND_URL = "https://irukascript.vercel.app/api/verify"
 
--- ==========================================
--- ✨ UI 介面搭建
--- ==========================================
+-- UI 核心部分保持原樣
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "IrukaAuthUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-if CoreGui:FindFirstChild("IrukaAuthUI") then
-    CoreGui.IrukaAuthUI:Destroy()
-end
+if CoreGui:FindFirstChild("IrukaAuthUI") then CoreGui.IrukaAuthUI:Destroy() end
 ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 350, 0, 220)
 MainFrame.Position = UDim2.new(0.5, -175, 0.5, -110)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true -- 激活元件狀態
+MainFrame.Active = true
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = MainFrame
-
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Color = Color3.fromRGB(55, 120, 250)
-UIStroke.Thickness = 2
-UIStroke.Parent = MainFrame
 
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, 0, 0, 45)
@@ -48,45 +31,18 @@ TitleLabel.Text = "🦈 Iruka Hub - 安全驗證中心"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleLabel.TextSize = 16
 TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.BorderSizePixel = 0
 TitleLabel.Parent = MainFrame
 
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 12)
-TitleCorner.Parent = TitleLabel
-
--- ❌ 修正後的關閉按鈕 (提高 ZIndex 確保不會被遮擋，並改用更安全的觸發方式)
 local CloseButton = Instance.new("TextButton")
-CloseButton.Name = "CloseButton"
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
 CloseButton.Position = UDim2.new(1, -40, 0, 7)
 CloseButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
 CloseButton.Text = "X"
 CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.TextSize = 14
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.ZIndex = 5 -- 確保在最上層
+CloseButton.ZIndex = 5
 CloseButton.Parent = MainFrame
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 6)
-CloseCorner.Parent = CloseButton
-
--- 強制關閉事件 (採用 Activated 確保所有執行器都能點擊)
-CloseButton.Activated:Connect(function()
-    ScreenGui:Destroy()
-end)
-
-local TipLabel = Instance.new("TextLabel")
-TipLabel.Size = UDim2.new(1, -40, 0, 20)
-TipLabel.Position = UDim2.new(0, 20, 0, 65)
-TipLabel.BackgroundTransparency = 1
-TipLabel.Text = "請輸入您的專屬卡密："
-TipLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
-TipLabel.TextSize = 13
-TipLabel.Font = Enum.Font.Gotham
-TipLabel.TextXAlignment = Enum.TextXAlignment.Left
-TipLabel.Parent = MainFrame
+CloseButton.Activated:Connect(function() ScreenGui:Destroy() end)
 
 local TextBox = Instance.new("TextBox")
 TextBox.Size = UDim2.new(1, -40, 0, 40)
@@ -94,21 +50,8 @@ TextBox.Position = UDim2.new(0, 20, 0, 95)
 TextBox.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 TextBox.Text = ""
 TextBox.PlaceholderText = "請輸入卡密..."
-TextBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 110)
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextBox.TextSize = 14
-TextBox.Font = Enum.Font.Gotham
-TextBox.BorderSizePixel = 0
 TextBox.Parent = MainFrame
-
-local BoxCorner = Instance.new("UICorner")
-BoxCorner.CornerRadius = UDim.new(0, 8)
-BoxCorner.Parent = TextBox
-
-local BoxStroke = Instance.new("UIStroke")
-BoxStroke.Color = Color3.fromRGB(60, 60, 70)
-BoxStroke.Thickness = 1
-BoxStroke.Parent = TextBox
 
 local VerifyButton = Instance.new("TextButton")
 VerifyButton.Size = UDim2.new(1, -40, 0, 45)
@@ -116,19 +59,15 @@ VerifyButton.Position = UDim2.new(0, 20, 0, 150)
 VerifyButton.BackgroundColor3 = Color3.fromRGB(55, 120, 250)
 VerifyButton.Text = "開始驗證"
 VerifyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-VerifyButton.TextSize = 16
 VerifyButton.Font = Enum.Font.GothamBold
-VerifyButton.BorderSizePixel = 0
 VerifyButton.Parent = MainFrame
 
-local BtnCorner = Instance.new("UICorner")
-BtnCorner.CornerRadius = UDim.new(0, 8)
-BtnCorner.Parent = VerifyButton
+-- ==========================================
+-- 🚀 終極強效發送邏輯
+-- ==========================================
 VerifyButton.Activated:Connect(function()
     local inputKey = TextBox.Text
-    
-    -- 🔒 核心修正：強力清除所有前後空白、換行符號與隱形字元！
-    inputKey = string.gsub(inputKey, "%s+", "")
+    inputKey = string.gsub(inputKey, "%s+", "") -- 清洗空白
     inputKey = string.gsub(inputKey, "[\r\n]", "")
 
     if inputKey == "" then
@@ -138,42 +77,54 @@ VerifyButton.Activated:Connect(function()
         return
     end
     
-    VerifyButton.Text = "⚡ 正在穿透連線中..."
+    VerifyButton.Text = "⚡ 正在強制破快取連線..."
     VerifyButton.Active = false
     
-    -- 使用 UrlEncode 確保字串在網址傳輸時不會變形
-    local fullUrl = BACKEND_URL .. "?key=" .. HttpService:UrlEncode(inputKey)
+    -- 🔄 核心招式 1：在網址後加上隨機時間戳記，徹底破除執行器的「記憶快取」！
+    local cacheBuster = "https://irukascript.vercel.app/api/verify?nocache=" .. tostring(os.time())
     
-    local success, resBody = pcall(function()
-        return game:HttpGet(fullUrl)
-    end)
+    -- 優先使用強大的 request 功能（支援自訂 Headers）
+    local sendRequest = syn and syn.request or http and http.request or request or (Fluxus and Fluxus.request)
     
-    if success and resBody then
-        local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(resBody) end)
+    if sendRequest then
+        local success, res = pcall(function()
+            return sendRequest({
+                Url = cacheBuster,
+                Method = "GET", -- 改回 GET
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["Iruka-Key"] = inputKey -- 🔑 核心招式 2：把卡密塞進安全 Header，不怕被網址閹割
+                }
+            })
+        end)
         
-        if decodeSuccess and data.success then
-            VerifyButton.Text = "✅ 歡迎，" .. tostring(data.user) .. "！載入中..."
-            VerifyButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-            task.wait(1)
-            ScreenGui:Destroy()
-            
-            if data.scriptData then
-                local runScript, compileError = loadstring(data.scriptData)
-                if runScript then 
-                    pcall(runScript) 
-                else 
-                    warn("[Iruka Hub] 編譯失敗: " .. tostring(compileError)) 
+        if success and res and res.Body then
+            local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
+            if decodeSuccess and data.success then
+                VerifyButton.Text = "✅ 歡迎，" .. tostring(data.user) .. "！載入中..."
+                VerifyButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+                task.wait(1)
+                ScreenGui:Destroy()
+                if data.scriptData then
+                    local runScript = loadstring(data.scriptData)
+                    if runScript then pcall(runScript) end
                 end
+            else
+                local errMsg = data and data.message or "卡密驗證失敗"
+                VerifyButton.Text = "❌ " .. tostring(errMsg)
+                VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
             end
         else
-            -- 💡 這裡會精準告訴你 Vercel 傳回來的真正錯誤訊息
-            local errMsg = data and data.message or "卡密不正確"
-            VerifyButton.Text = "❌ " .. tostring(errMsg)
-            VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+            VerifyButton.Text = "❌ 請求失敗，改用相容模式..."
+            task.wait(1)
+            -- 備用傳統管道
+            local subSuccess, subRes = pcall(function() return game:HttpGet(BACKEND_URL .. "?key=" .. inputKey .. "&t=" .. tostring(os.time())) end)
+            VerifyButton.Text = "❌ 請重新嘗試點擊"
         end
     else
-        VerifyButton.Text = "❌ 連線失敗: 網址不正確或伺服器未開啟"
-        VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+        -- 完全不支援高級請求的底層執行器，強行使用傳統 HttpGet
+        local subSuccess, subRes = pcall(function() return game:HttpGet(BACKEND_URL .. "?key=" .. inputKey .. "&t=" .. tostring(os.time())) end)
+        VerifyButton.Text = "⚠️ 執行器不支援高級通訊"
     end
     
     task.wait(2)
