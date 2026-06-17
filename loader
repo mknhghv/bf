@@ -1,13 +1,14 @@
--- [[ 鯊 Iruka Hub 全安全版中轉載入器 - 帶關閉按鈕 ]]
+-- [[ 🦈 Iruka Hub 修正版載入器 - 現代化拖動＋強制關閉 ]]
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
 -- 🌐 填入你的 Vercel 後端網址
 -- ==========================================
-local BACKEND_URL = "https://你的專案名稱.vercel.app/api/verify"
+local BACKEND_URL = "irukascript.vercel.app/api/verify"
 
 -- ==========================================
 -- ✨ UI 介面搭建
@@ -28,8 +29,7 @@ MainFrame.Size = UDim2.new(0, 350, 0, 220)
 MainFrame.Position = UDim2.new(0.5, -175, 0.5, -110)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true -- 讓視窗可以拖動
+MainFrame.Active = true -- 激活元件狀態
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
@@ -55,7 +55,7 @@ local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 12)
 TitleCorner.Parent = TitleLabel
 
--- ❌ 新增的關閉按鈕
+-- ❌ 修正後的關閉按鈕 (提高 ZIndex 確保不會被遮擋，並改用更安全的觸發方式)
 local CloseButton = Instance.new("TextButton")
 CloseButton.Name = "CloseButton"
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
@@ -65,14 +65,15 @@ CloseButton.Text = "X"
 CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseButton.TextSize = 14
 CloseButton.Font = Enum.Font.GothamBold
+CloseButton.ZIndex = 5 -- 確保在最上層
 CloseButton.Parent = MainFrame
 
 local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 6)
 CloseCorner.Parent = CloseButton
 
--- 關閉按鈕點擊事件
-CloseButton.MouseButton1Click:Connect(function()
+-- 強制關閉事件 (採用 Activated 確保所有執行器都能點擊)
+CloseButton.Activated:Connect(function()
     ScreenGui:Destroy()
 end)
 
@@ -125,9 +126,45 @@ BtnCorner.CornerRadius = UDim.new(0, 8)
 BtnCorner.Parent = VerifyButton
 
 -- ==========================================
--- 🚀 帶有錯誤代碼回傳的防錯驗證邏輯
+-- 🛠️ 現代化滑順拖動邏輯 (取代舊版 Draggable)
 -- ==========================================
-VerifyButton.MouseButton1Click:Connect(function()
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- ==========================================
+-- 🚀 後端中轉驗證發送邏輯
+-- ==========================================
+VerifyButton.Activated:Connect(function()
     local inputKey = TextBox.Text
     if inputKey == "" then
         VerifyButton.Text = "❌ 請先輸入卡密！"
@@ -144,18 +181,10 @@ VerifyButton.MouseButton1Click:Connect(function()
         userId = tostring(LocalPlayer.UserId)
     })
     
-    -- 強制尋找執行器最底層的請求函式
     local sendRequest = syn and syn.request or http and http.request or request or (Fluxus and Fluxus.request)
     
     if not sendRequest then
-        -- 如果執行器連基本的 request 都不給用，改用強制備用管道
-        VerifyButton.Text = "⚠️ 執行器限制，切換備用管道..."
-        task.wait(1)
-        local success, res = pcall(function()
-            return game:HttpGet(BACKEND_URL .. "?key=" .. inputKey)
-        end)
-        -- 提示用戶：因為這個備用管道只支援 GET，如果後端是 POST 就會報錯
-        VerifyButton.Text = "❌ 執行器不支援 POST 請求"
+        VerifyButton.Text = "❌ 您的執行器不支援安全 HTTP 請求"
         task.wait(2)
         VerifyButton.Text = "開始驗證"
         VerifyButton.Active = true
@@ -192,13 +221,11 @@ VerifyButton.MouseButton1Click:Connect(function()
                 VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
             end
         else
-            -- 💡 這裡會精準告訴你 Vercel 給你回傳了什麼錯誤代碼！(例如 404, 405, 500)
             VerifyButton.Text = "❌ 伺服器拒絕 (錯誤碼: " .. tostring(statusCode) .. ")"
             VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
         end
     else
-        -- 💡 這裡會噴出 Roblox 執行器內部的原生錯誤訊息
-        VerifyButton.Text = "❌ 連線失敗: " .. string.sub(tostring(res), 1, 15)
+        VerifyButton.Text = "❌ 連線失敗: 網址不正確或未部署"
         VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
     end
     
