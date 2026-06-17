@@ -15,7 +15,6 @@ local function isHooked(func)
     end
     return false
 end
-
 -- ❌ 測試開始
 if isHooked(loadstring) or isHooked(game.HttpGet) then
     game.Players.LocalPlayer:Kick("🦈 Iruka Hub: 偵測到環境異常（偷跑攔截器），已安全退出。")
