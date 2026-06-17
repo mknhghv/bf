@@ -1,4 +1,3 @@
--- [[ 🦈 Iruka Hub 全安全版中轉載入器 ]]
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -10,7 +9,7 @@ local LocalPlayer = Players.LocalPlayer
 local BACKEND_URL = "irukascript.vercel.app"
 
 -- ==========================================
--- ✨ UI 介面搭建 (輸入卡密視窗)
+-- ✨ UI 介面搭建
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "IrukaAuthUI"
@@ -28,6 +27,8 @@ MainFrame.Size = UDim2.new(0, 350, 0, 220)
 MainFrame.Position = UDim2.new(0.5, -175, 0.5, -110)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- 讓視窗可以拖動
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
@@ -44,7 +45,7 @@ TitleLabel.Size = UDim2.new(1, 0, 0, 45)
 TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 TitleLabel.Text = "🦈 Iruka Hub - 安全驗證中心"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.TextSize = 18
+TitleLabel.TextSize = 16
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.BorderSizePixel = 0
 TitleLabel.Parent = MainFrame
@@ -53,11 +54,32 @@ local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 12)
 TitleCorner.Parent = TitleLabel
 
+-- ❌ 新增的關閉按鈕
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -40, 0, 7)
+CloseButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 14
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = MainFrame
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseButton
+
+-- 關閉按鈕點擊事件
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
 local TipLabel = Instance.new("TextLabel")
 TipLabel.Size = UDim2.new(1, -40, 0, 20)
 TipLabel.Position = UDim2.new(0, 20, 0, 65)
 TipLabel.BackgroundTransparency = 1
-TipLabel.Text = "請輸入存放在 Vercel 後台的卡密："
+TipLabel.Text = "請輸入您的專屬卡密："
 TipLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
 TipLabel.TextSize = 13
 TipLabel.Font = Enum.Font.Gotham
@@ -122,7 +144,6 @@ VerifyButton.MouseButton1Click:Connect(function()
     }
     
     local jsonPayload = HttpService:JSONEncode(payload)
-    -- 自動適應所有執行器的請求函式
     local sendRequest = syn and syn.request or http and http.request or request
     
     if not sendRequest then
@@ -146,24 +167,19 @@ VerifyButton.MouseButton1Click:Connect(function()
         local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
         
         if decodeSuccess and data.success then
-            VerifyButton.Text = "✅ 驗證成功！正在加載核心..."
+            -- 顯示歡迎語句（後端傳回的使用者名字）
+            VerifyButton.Text = "✅ 歡迎回來，" .. tostring(data.user) .. "！載入中..."
             VerifyButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-            task.wait(0.5)
+            task.wait(1)
             ScreenGui:Destroy()
             
-            -- 🔒 核心安全改動：直接從後台記憶體數據執行，不經由網路網址
             if data.scriptData then
                 local runScript, compileError = loadstring(data.scriptData)
                 if runScript then 
-                    local runSuccess, runError = pcall(runScript)
-                    if not runSuccess then
-                        warn("[Iruka Hub] 執行本體時發生錯誤: " .. tostring(runError))
-                    end
+                    pcall(runScript)
                 else 
                     warn("[Iruka Hub] 腳本編譯失敗: " .. tostring(compileError)) 
                 end
-            else
-                warn("[Iruka Hub] 後端未傳回核心腳本數據")
             end
         else
             local errMsg = data and data.message or "卡密不正確"
