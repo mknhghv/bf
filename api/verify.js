@@ -15,7 +15,7 @@ export default function handler(req, res) {
         return res.status(200).json({
             success: true,
             message: '驗證成功！',
-            scriptUrl: "https://raw.githubusercontent.com/mknhghv/script/main/main.lua"
+            scriptUrl: "https://raw.githubusercontent.com/mknhghv/irukascript/refs/heads/main/main.lua"
         });
     } else {
         return res.status(403).json({
