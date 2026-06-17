@@ -1,3 +1,4 @@
+-- [[ 鯊 Iruka Hub 全安全版中轉載入器 - 帶關閉按鈕 ]]
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -6,7 +7,7 @@ local LocalPlayer = Players.LocalPlayer
 -- ==========================================
 -- 🌐 填入你的 Vercel 後端網址
 -- ==========================================
-local BACKEND_URL = "irukascript.vercel.app"
+local BACKEND_URL = "https://你的專案名稱.vercel.app/api/verify"
 
 -- ==========================================
 -- ✨ UI 介面搭建
@@ -124,7 +125,7 @@ BtnCorner.CornerRadius = UDim.new(0, 8)
 BtnCorner.Parent = VerifyButton
 
 -- ==========================================
--- 🚀 後端中轉驗證發送邏輯
+-- 🚀 帶有錯誤代碼回傳的防錯驗證邏輯
 -- ==========================================
 VerifyButton.MouseButton1Click:Connect(function()
     local inputKey = TextBox.Text
@@ -135,19 +136,26 @@ VerifyButton.MouseButton1Click:Connect(function()
         return
     end
     
-    VerifyButton.Text = "⚡ 正在與 Vercel 安全連線..."
+    VerifyButton.Text = "⚡ 正在與 Vercel 連線..."
     VerifyButton.Active = false
     
-    local payload = {
+    local payload = HttpService:JSONEncode({
         key = inputKey,
         userId = tostring(LocalPlayer.UserId)
-    }
+    })
     
-    local jsonPayload = HttpService:JSONEncode(payload)
-    local sendRequest = syn and syn.request or http and http.request or request
+    -- 強制尋找執行器最底層的請求函式
+    local sendRequest = syn and syn.request or http and http.request or request or (Fluxus and Fluxus.request)
     
     if not sendRequest then
-        VerifyButton.Text = "❌ 您的執行器不支援安全 HTTP 請求"
+        -- 如果執行器連基本的 request 都不給用，改用強制備用管道
+        VerifyButton.Text = "⚠️ 執行器限制，切換備用管道..."
+        task.wait(1)
+        local success, res = pcall(function()
+            return game:HttpGet(BACKEND_URL .. "?key=" .. inputKey)
+        end)
+        -- 提示用戶：因為這個備用管道只支援 GET，如果後端是 POST 就會報錯
+        VerifyButton.Text = "❌ 執行器不支援 POST 請求"
         task.wait(2)
         VerifyButton.Text = "開始驗證"
         VerifyButton.Active = true
@@ -159,43 +167,43 @@ VerifyButton.MouseButton1Click:Connect(function()
             Url = BACKEND_URL,
             Method = "POST",
             Headers = { ["Content-Type"] = "application/json" },
-            Body = jsonPayload
+            Body = payload
         })
     end)
     
-    if success and res.Body then
-        local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
+    if success and res then
+        local statusCode = res.StatusCode or 0
+        local bodyContent = res.Body or ""
         
-        if decodeSuccess and data.success then
-            -- 顯示歡迎語句（後端傳回的使用者名字）
-            VerifyButton.Text = "✅ 歡迎回來，" .. tostring(data.user) .. "！載入中..."
-            VerifyButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-            task.wait(1)
-            ScreenGui:Destroy()
-            
-            if data.scriptData then
-                local runScript, compileError = loadstring(data.scriptData)
-                if runScript then 
-                    pcall(runScript)
-                else 
-                    warn("[Iruka Hub] 腳本編譯失敗: " .. tostring(compileError)) 
+        if statusCode == 200 then
+            local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(bodyContent) end)
+            if decodeSuccess and data.success then
+                VerifyButton.Text = "✅ 歡迎，" .. tostring(data.user) .. "！載入中..."
+                VerifyButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+                task.wait(1)
+                ScreenGui:Destroy()
+                
+                if data.scriptData then
+                    local runScript, compileError = loadstring(data.scriptData)
+                    if runScript then pcall(runScript) else warn(compileError) end
                 end
+            else
+                VerifyButton.Text = "❌ 卡密無效或過期"
+                VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
             end
         else
-            local errMsg = data and data.message or "卡密不正確"
-            VerifyButton.Text = "❌ " .. tostring(errMsg)
+            -- 💡 這裡會精準告訴你 Vercel 給你回傳了什麼錯誤代碼！(例如 404, 405, 500)
+            VerifyButton.Text = "❌ 伺服器拒絕 (錯誤碼: " .. tostring(statusCode) .. ")"
             VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
-            task.wait(2)
-            VerifyButton.BackgroundColor3 = Color3.fromRGB(55, 120, 250)
-            VerifyButton.Text = "開始驗證"
-            VerifyButton.Active = true
         end
     else
-        VerifyButton.Text = "❌ 無法連線至 Vercel 伺服器"
+        -- 💡 這裡會噴出 Roblox 執行器內部的原生錯誤訊息
+        VerifyButton.Text = "❌ 連線失敗: " .. string.sub(tostring(res), 1, 15)
         VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
-        task.wait(2)
-        VerifyButton.BackgroundColor3 = Color3.fromRGB(55, 120, 250)
-        VerifyButton.Text = "開始驗證"
-        VerifyButton.Active = true
     end
+    
+    task.wait(2)
+    VerifyButton.BackgroundColor3 = Color3.fromRGB(55, 120, 250)
+    VerifyButton.Text = "開始驗證"
+    VerifyButton.Active = true
 end)
