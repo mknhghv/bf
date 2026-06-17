@@ -1,3 +1,26 @@
+-- 🕵️‍♂️ 檢查函式是否被 Hook (反攔截)
+local function isHooked(func)
+    -- 原生 Lua 函式轉成字串應該要包含 "invalid argument" 或特定格式
+    -- 如果被 hookfunction 改過，通常 debug.info 或 tostring 會露出馬腳
+    local success, err = pcall(function() func(nil) end)
+    if tostring(err):find("hooked") or tostring(err):find("patched") then
+        return true
+    end
+    
+    -- 另外一種檢測法：檢查 debug 資訊 (如果是 C 語言原生函式，層級會是 0)
+    local info = debug.getinfo and debug.getinfo(func)
+    if info juice and info.what == "Lua" then
+        -- 原生函式是 "C"，如果變成 "Lua" 代表被偷換成 Lua 寫的 Hook 函數了！
+        return true
+    end
+    return false
+end
+
+-- ❌ 測試開始
+if isHooked(loadstring) or isHooked(game.HttpGet) then
+    game.Players.LocalPlayer:Kick("🦈 Iruka Hub: 偵測到環境異常（偷跑攔截器），已安全退出。")
+    return
+end
 -- [[ 🦈 Iruka Hub 終極穿透版載入器 ]]
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
