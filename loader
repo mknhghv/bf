@@ -1,0 +1,185 @@
+-- [[ 🦈 Iruka Hub 全安全版中轉載入器 ]]
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- ==========================================
+-- 🌐 填入你的 Vercel 後端網址
+-- ==========================================
+local BACKEND_URL = "irukascript.vercel.app"
+
+-- ==========================================
+-- ✨ UI 介面搭建 (輸入卡密視窗)
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "IrukaAuthUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+if CoreGui:FindFirstChild("IrukaAuthUI") then
+    CoreGui.IrukaAuthUI:Destroy()
+end
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 350, 0, 220)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -110)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(55, 120, 250)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 45)
+TitleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+TitleLabel.Text = "🦈 Iruka Hub - 安全驗證中心"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 18
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.BorderSizePixel = 0
+TitleLabel.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = TitleLabel
+
+local TipLabel = Instance.new("TextLabel")
+TipLabel.Size = UDim2.new(1, -40, 0, 20)
+TipLabel.Position = UDim2.new(0, 20, 0, 65)
+TipLabel.BackgroundTransparency = 1
+TipLabel.Text = "請輸入存放在 Vercel 後台的卡密："
+TipLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+TipLabel.TextSize = 13
+TipLabel.Font = Enum.Font.Gotham
+TipLabel.TextXAlignment = Enum.TextXAlignment.Left
+TipLabel.Parent = MainFrame
+
+local TextBox = Instance.new("TextBox")
+TextBox.Size = UDim2.new(1, -40, 0, 40)
+TextBox.Position = UDim2.new(0, 20, 0, 95)
+TextBox.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TextBox.Text = ""
+TextBox.PlaceholderText = "請輸入卡密..."
+TextBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 110)
+TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.TextSize = 14
+TextBox.Font = Enum.Font.Gotham
+TextBox.BorderSizePixel = 0
+TextBox.Parent = MainFrame
+
+local BoxCorner = Instance.new("UICorner")
+BoxCorner.CornerRadius = UDim.new(0, 8)
+BoxCorner.Parent = TextBox
+
+local BoxStroke = Instance.new("UIStroke")
+BoxStroke.Color = Color3.fromRGB(60, 60, 70)
+BoxStroke.Thickness = 1
+BoxStroke.Parent = TextBox
+
+local VerifyButton = Instance.new("TextButton")
+VerifyButton.Size = UDim2.new(1, -40, 0, 45)
+VerifyButton.Position = UDim2.new(0, 20, 0, 150)
+VerifyButton.BackgroundColor3 = Color3.fromRGB(55, 120, 250)
+VerifyButton.Text = "開始驗證"
+VerifyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+VerifyButton.TextSize = 16
+VerifyButton.Font = Enum.Font.GothamBold
+VerifyButton.BorderSizePixel = 0
+VerifyButton.Parent = MainFrame
+
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 8)
+BtnCorner.Parent = VerifyButton
+
+-- ==========================================
+-- 🚀 後端中轉驗證發送邏輯
+-- ==========================================
+VerifyButton.MouseButton1Click:Connect(function()
+    local inputKey = TextBox.Text
+    if inputKey == "" then
+        VerifyButton.Text = "❌ 請先輸入卡密！"
+        task.wait(1.5)
+        VerifyButton.Text = "開始驗證"
+        return
+    end
+    
+    VerifyButton.Text = "⚡ 正在與 Vercel 安全連線..."
+    VerifyButton.Active = false
+    
+    local payload = {
+        key = inputKey,
+        userId = tostring(LocalPlayer.UserId)
+    }
+    
+    local jsonPayload = HttpService:JSONEncode(payload)
+    -- 自動適應所有執行器的請求函式
+    local sendRequest = syn and syn.request or http and http.request or request
+    
+    if not sendRequest then
+        VerifyButton.Text = "❌ 您的執行器不支援安全 HTTP 請求"
+        task.wait(2)
+        VerifyButton.Text = "開始驗證"
+        VerifyButton.Active = true
+        return
+    end
+
+    local success, res = pcall(function()
+        return sendRequest({
+            Url = BACKEND_URL,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = jsonPayload
+        })
+    end)
+    
+    if success and res.Body then
+        local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
+        
+        if decodeSuccess and data.success then
+            VerifyButton.Text = "✅ 驗證成功！正在加載核心..."
+            VerifyButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+            task.wait(0.5)
+            ScreenGui:Destroy()
+            
+            -- 🔒 核心安全改動：直接從後台記憶體數據執行，不經由網路網址
+            if data.scriptData then
+                local runScript, compileError = loadstring(data.scriptData)
+                if runScript then 
+                    local runSuccess, runError = pcall(runScript)
+                    if not runSuccess then
+                        warn("[Iruka Hub] 執行本體時發生錯誤: " .. tostring(runError))
+                    end
+                else 
+                    warn("[Iruka Hub] 腳本編譯失敗: " .. tostring(compileError)) 
+                end
+            else
+                warn("[Iruka Hub] 後端未傳回核心腳本數據")
+            end
+        else
+            local errMsg = data and data.message or "卡密不正確"
+            VerifyButton.Text = "❌ " .. tostring(errMsg)
+            VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+            task.wait(2)
+            VerifyButton.BackgroundColor3 = Color3.fromRGB(55, 120, 250)
+            VerifyButton.Text = "開始驗證"
+            VerifyButton.Active = true
+        end
+    else
+        VerifyButton.Text = "❌ 無法連線至 Vercel 伺服器"
+        VerifyButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+        task.wait(2)
+        VerifyButton.BackgroundColor3 = Color3.fromRGB(55, 120, 250)
+        VerifyButton.Text = "開始驗證"
+        VerifyButton.Active = true
+    end
+end)
