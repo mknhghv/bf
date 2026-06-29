@@ -1,0 +1,57 @@
+-- ==========================================================
+-- 🚫 Iruka Hub (Specter Hub) - 雲端黑名單與名稱過濾系統
+-- ==========================================================
+
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ❌ 踢出遊戲時顯示的自訂訊息
+local kickMessage = "\n\n[Specter Hub]\n❌ 安全系統偵測異常，你已被拒絕存取本腳本。"
+
+-- ----------------------------------------------------------
+-- 【第一重防禦：顯示名稱關鍵字偵測】
+-- ----------------------------------------------------------
+-- 取得玩家的顯示名稱，並全部轉為小寫（防範大小寫繞過，如 1AmNot, 1AM）
+local displayName = string.lower(LocalPlayer.DisplayName)
+
+if string.find(displayName, "1amnot") or string.find(displayName, "1am") then
+    LocalPlayer:Kick(kickMessage)
+    return -- 觸發攔截，立刻停止執行後續程式碼
+end
+
+-- ----------------------------------------------------------
+-- 【第二重防禦：聯網讀取 GitHub JSON 黑名單】
+-- ----------------------------------------------------------
+-- 💡 請把底下的網址，換成你 GitHub 儲存庫裡黑名單 JSON 檔的 Raw 連結
+local jsonUrl = "https://raw.githubusercontent.com/mknhghv/bf/refs/heads/main/blacklist.json"
+
+local success, result = pcall(function()
+    return game:HttpGet(jsonUrl)
+  end)
+
+if success and result then
+    local decodeSuccess, blacklistData = pcall(function()
+        return HttpService:JSONDecode(result)
+    end)
+    
+    if decodeSuccess and blacklistData then
+        -- 檢查線上 JSON 中的使用者 ID (轉為字串或數字比對)
+        local currentId = tostring(LocalPlayer.UserId)
+        local currentName = string.lower(LocalPlayer.Name)
+        
+        -- 如果在 JSON 的黑名單列表中
+        if blacklistData[currentId] or blacklistData[currentName] then
+            LocalPlayer:Kick(kickMessage)
+            return
+        end
+    end
+else
+    warn("⚠️ [Specter Hub] 無法連線至雲端安全資料庫，請檢查網路。")
+end
+
+-- ==========================================================
+-- 🚀 通過雙重檢查：以下開始放你原本的載入器或核心腳本程式碼
+-- ==========================================================
+print("✅ [Specter Hub] 安全驗證通過，正在載入腳本...")
+loadstring(game:HttpGet(""))()
