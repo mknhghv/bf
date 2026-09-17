@@ -1,4 +1,4 @@
--- pls join my server https://discord.gg/Gq4HKM6rcu
+-- [v12] 防重複執行守衛 + 卸載註冊表（:Connect 連線 與 Drawing 物件登記於此）
 if _G.__IrukaHubActive then pcall(function() if _G.IrukaHubUnload then _G.IrukaHubUnload() end end) pcall(function() local p = game:GetService("Players").LocalPlayer local pg = p and p:FindFirstChildOfClass("PlayerGui") if pg then for _, g in ipairs(pg:GetChildren()) do if g:IsA("ScreenGui") and (g.Name == "AuroraUI" or g.Name == "TPGui" or g.Name == "StatsGui" or g.Name == "PlayerListGUI" or g.Name == "main" or g.Name == "IrukaFovCircle") then g:Destroy() end end end end) task.wait(0.15) end
 _G.__IrukaHubActive = true
 _G.IrukaConnections, _G.IrukaDrawings = _G.IrukaConnections or {}, _G.IrukaDrawings or {}
@@ -3593,6 +3593,7 @@ function getCirclePosition(targetPos, deltaTime)
 end
 
 local moving = false
+local MOVE_LOCK_RANGE = 2000 -- [鎖人] 追蹤目標的最大距離（米）：範圍內鎖定追蹤，超過即放開
 
 irukaTrack(RunService.Heartbeat:Connect(function(delta)
 	if moving and selectedTarget and selectedTarget.Character and selectedTarget.Character:FindFirstChild("HumanoidRootPart") then
@@ -3600,6 +3601,12 @@ irukaTrack(RunService.Heartbeat:Connect(function(delta)
 		if hrp then
 			local basePos = selectedTarget.Character.HumanoidRootPart.Position - Vector3.new(0, 3, 0)
 			local distance = (hrp.Position - basePos).Magnitude
+
+			-- [鎖人距離 2000] 超過 2000 米不鎖定（停止追蹤）
+			if distance > MOVE_LOCK_RANGE then
+				destroyFollowPlatform()
+				return
+			end
 
 			if Config.UseOffset then basePos = basePos + Vector3.new(Config.OffsetX, Config.OffsetY, Config.OffsetZ) end
 
@@ -3614,12 +3621,9 @@ irukaTrack(RunService.Heartbeat:Connect(function(delta)
 			end
 
 			if bloxFruitsMode and useTween then
-				local nearestIslandPos = CheckNearestTeleporter(targetPos)
-            	if nearestIslandPos then
-					destroyFollowPlatform()
-                	requestEntrance(nearestIslandPos)
-				elseif Config.BypassYTween and not Config.HideTween then
-    				if math.abs(hrp.Position.Y - targetPos.Y) > 50 then
+				-- [鎖人] 2000 米內一律直接追蹤，不再被島嶼傳送打斷鎖定
+				if Config.BypassYTween and not Config.HideTween then
+					if math.abs(hrp.Position.Y - targetPos.Y) > 50 then
 						destroyFollowPlatform()
         				hrp.CFrame = CFrame.new(hrp.Position.X, targetPos.Y, hrp.Position.Z)
     				end
@@ -5403,6 +5407,21 @@ function CheckPlayerAlly(other)
   return true
 end
 
+-- [快速攻擊排除名單] 名單內的玩家：槍、刀、果實 M1 全部不對其發包
+-- 要新增對象直接在下面加一行 ["使用者名稱"] = true,
+_G.IrukaFastAttackExclude = {
+	["abcddfgfdg"] = true,
+	["mknhghv"] = true,
+	["dt106101zz"] = true,
+}
+function _G.IrukaIsFastAttackExcluded(model)
+	if not model then return false end
+	if _G.IrukaFastAttackExclude[model.Name] then return true end
+	local plr = Players:GetPlayerFromCharacter(model)
+	if plr and _G.IrukaFastAttackExclude[plr.Name] then return true end
+	return false
+end
+
 local aimbotTarget = nil
 
 function getAimbotTarget()
@@ -5430,6 +5449,7 @@ function getAimbotTarget()
 				if Config.TeamCheckAimbot and plr then
 					if not CheckPlayerAlly(plr) then continue end
 				end
+				if _G.IrukaIsFastAttackExcluded(Mob) then continue end
 				local dist = (Mob.HumanoidRootPart.Position - myPos).Magnitude
 					if dist < nearestDist and dist < Config.MaxAimbotRange then
 					nearestDist = dist
@@ -5823,7 +5843,7 @@ do
             local folder = workspace:FindFirstChild("Characters")
             if folder then
                 for _, mob in ipairs(folder:GetChildren()) do
-                    if mob ~= char then
+                    if mob ~= char and not _G.IrukaIsFastAttackExcluded(mob) then
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         if mRoot and mHum and mHum.Health > 0 then
@@ -5896,7 +5916,7 @@ local includePlayers = Config.FastAttackPlayer
                         for _, Mob in ipairs(Chars:GetChildren()) do
                             local MobRoot = Mob:FindFirstChild('HumanoidRootPart')
                             local MobHumanoid = Mob:FindFirstChild('Humanoid')
-                            if Mob ~= Character and MobRoot and MobHumanoid and MobHumanoid.Health > 0 then
+                            if Mob ~= Character and MobRoot and MobHumanoid and MobHumanoid.Health > 0 and not _G.IrukaIsFastAttackExcluded(Mob) then
                                 -- 使用平方距離避免開平方運算
                                 local diff = MobRoot.Position - hrpPos
                                 if (diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z) <= distSqr then
@@ -6143,7 +6163,7 @@ function _G.IrukaFruitM1Ctl.start()
 				if Mobs.Name == "Characters" and not Config.FastAttackPlayer then continue end
 
 				for _, Mob in ipairs(Mobs:GetChildren()) do
-					if Mob == Character or not Mob:IsA("Model") or isShadow(Mob.Name) or Mob.Name == "Blank Buddy" then continue end
+					if Mob == Character or not Mob:IsA("Model") or isShadow(Mob.Name) or Mob.Name == "Blank Buddy" or _G.IrukaIsFastAttackExcluded(Mob) then continue end
 					local mobHrp = Mob:FindFirstChild('HumanoidRootPart')
 					local mobHum = Mob:FindFirstChild('Humanoid')
 					if mobHrp and mobHum and mobHum.Health > (Config.HealthMobThreshold or 0) then
