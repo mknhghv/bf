@@ -1,3 +1,35 @@
+--黑名單
+local Players = game:GetService("Players")
+
+-- 設定黑名單（全部使用小寫，方便後續進行不分大小寫比對）
+local Blacklist = {
+	["caicommenauxx"] = true,
+	[""] = true
+}
+
+-- 設定踢出時的提示訊息
+local KickMessage = "You really messed with a TW Top 3 hacker and still got the nerve to run scripts? 😂so cute baby"
+
+local function onPlayerAdded(player)
+	-- 取得玩家的帳號名稱與顯示名稱，並統一轉為小寫以防大小寫繞過
+	local username = string.lower(player.Name)
+	local displayName = string.lower(player.DisplayName)
+
+	-- 檢查兩者是否其中一項在黑名單中
+	if Blacklist[username] or Blacklist[displayName] then
+		player:Kick(KickMessage)
+	end
+end
+
+-- 監聽玩家加入事件
+Players.PlayerAdded:Connect(onPlayerAdded)
+
+-- 防止腳本載入過慢，漏掉已經在伺服器內的玩家
+for _, player in ipairs(Players:GetPlayers()) do
+	onPlayerAdded(player)
+end
+
+
 -- [v12] 防重複執行守衛 + 卸載註冊表（:Connect 連線 與 Drawing 物件登記於此）
 if _G.__IrukaHubActive then pcall(function() if _G.IrukaHubUnload then _G.IrukaHubUnload() end end) pcall(function() local p = game:GetService("Players").LocalPlayer local pg = p and p:FindFirstChildOfClass("PlayerGui") if pg then for _, g in ipairs(pg:GetChildren()) do if g:IsA("ScreenGui") and (g.Name == "AuroraUI" or g.Name == "TPGui" or g.Name == "StatsGui" or g.Name == "PlayerListGUI" or g.Name == "main" or g.Name == "IrukaFovCircle") then g:Destroy() end end end end) task.wait(0.15) end
 _G.__IrukaHubActive = true
